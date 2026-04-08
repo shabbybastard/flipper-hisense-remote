@@ -64,7 +64,7 @@ This project is a modified version of the **Flipper Zero Samsung TV Remote** ori
 All credit for the original application design, architecture, and implementation goes to the original author.
 
 
-The code has been modified and adapted by Kimi K2.5
+Neuroslop warning - The code has been modified and adapted by AI
 
 ## License
 
