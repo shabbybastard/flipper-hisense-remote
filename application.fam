@@ -1,0 +1,17 @@
+# For details & more options, see documentation/AppManifests.md in firmware repo
+
+App(
+    appid="hisense",
+    name="Hisense Remote",
+    apptype=FlipperAppType.EXTERNAL,
+    entry_point="hisense_remote_app",
+    stack_size=2 * 1024,
+    fap_category="Tools",
+    fap_version="1.0",
+    fap_icon="hisense.png",
+    fap_description="Hisense TV remote with custom IR commands",
+    # fap_author="",
+    fap_weburl="https://github.com/shabbybastard/flipper-hisense-remote",
+    fap_icon_assets="images",
+    sources=["*.c"],
+)
