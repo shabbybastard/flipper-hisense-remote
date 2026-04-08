@@ -34,15 +34,15 @@ typedef enum {
 // --- Button Definitions ---
 typedef enum {
     Button_Power,
+    Button_Volume_Up,
+    Button_Channel_Up,
+    Button_Volume_Down,
+    Button_Channel_Down,
     Button_Up,
     Button_Left,
     Button_Enter,
     Button_Right,
     Button_Down,
-    Button_Volume_Up,
-    Button_Channel_Up,
-    Button_Volume_Down,
-    Button_Channel_Down,
     Button_Return,
     Button_Mute,
     Button_About,
@@ -66,28 +66,28 @@ typedef struct {
 // held sideways (rotated +90 degrees). Navigation links are corrected for new logic.
 static const RemoteButtonDef button_defs[Button_Max] = {
     // ID                 Label       Icon                         X   Y   W   H   Up (phys Left)      Down (phys Right)   Left (phys Down)    Right (phys Up)
-    [Button_Power]      = {"PWR",      NULL,                         16,  2, 32,  8, Button_Power,       Button_Enter,       Button_Power,       Button_Power},
-
-    // D-Pad
-    [Button_Up]         = {NULL,       &I_up7x4,                     28, 14,  7,  4, Button_Power,       Button_Enter,       Button_Up,          Button_Up},
-    [Button_Enter]      = {"OK",       NULL,                         20, 22, 24,  9, Button_Up,          Button_Volume_Up,   Button_Left,        Button_Right},
-    [Button_Left]       = {NULL,       &I_left7x4,                   10, 23,  7,  4, Button_Enter,       Button_Enter,       Button_Left,        Button_Enter},
-    [Button_Right]      = {NULL,       &I_right7x4,                  47, 23,  7,  4, Button_Enter,       Button_Enter,       Button_Enter,       Button_Right},
-    [Button_Down]       = {NULL,       &I_down7x4,                   28, 34,  7,  4, Button_Enter,       Button_Volume_Up,   Button_Down,        Button_Down},
+    [Button_Power]      = {"PWR",      NULL,                         16,  2, 32, 10, Button_Power,       Button_Volume_Up,   Button_Power,       Button_Power},
 
     // Volume and Channel Rockers (in two columns)
-    [Button_Volume_Up]  = {NULL,       &I_volup24x21,      5, 45, 24, 21, Button_Enter,       Button_Volume_Down, Button_Volume_Up,   Button_Channel_Up},
-    [Button_Channel_Up] = {NULL,       &I_chup24x21,                 35, 45, 24, 21, Button_Enter,       Button_Channel_Down,Button_Volume_Up,   Button_Channel_Up},
+    [Button_Volume_Up]  = {NULL,       &I_volup24x21,                5, 15, 24, 21, Button_Power,       Button_Volume_Down, Button_Volume_Up,   Button_Channel_Up},
+    [Button_Channel_Up] = {NULL,       &I_chup24x21,                 35, 15, 24, 21, Button_Power,       Button_Channel_Down,Button_Volume_Up,   Button_Channel_Up},
 
-    [Button_Volume_Down]= {NULL,       &I_voldown24x21,        5, 68, 24, 21, Button_Volume_Up,   Button_Return,      Button_Volume_Down, Button_Channel_Down},
-    [Button_Channel_Down]={NULL,       &I_chdown24x21,               35, 68, 24, 21, Button_Channel_Up,  Button_Mute,        Button_Volume_Down, Button_Channel_Down},
+    [Button_Volume_Down]= {NULL,       &I_voldown24x21,              5, 38, 24, 21, Button_Volume_Up,   Button_Up,          Button_Volume_Down, Button_Channel_Down},
+    [Button_Channel_Down]={NULL,       &I_chdown24x21,               35, 38, 24, 21, Button_Channel_Up,  Button_Up,          Button_Volume_Down, Button_Channel_Down},
+
+    // D-Pad
+    [Button_Up]         = {NULL,       &I_up7x4,                     28, 62,  7,  4, Button_Volume_Down, Button_Enter,       Button_Up,          Button_Up},
+    [Button_Enter]      = {"OK",       NULL,                         20, 70, 24, 11, Button_Up,          Button_Return,      Button_Left,        Button_Right},
+    [Button_Left]       = {NULL,       &I_left7x4,                   10, 71,  7,  4, Button_Enter,       Button_Enter,       Button_Left,        Button_Enter},
+    [Button_Right]      = {NULL,       &I_right7x4,                  47, 71,  7,  4, Button_Enter,       Button_Enter,       Button_Enter,       Button_Right},
+    [Button_Down]       = {NULL,       &I_down7x4,                   28, 83,  7,  4, Button_Enter,       Button_Return,      Button_Down,        Button_Down},
 
     // Bottom Row
-    [Button_Return]     = {"Ret",   NULL,                         5, 92, 24, 21, Button_Volume_Down, Button_About,       Button_Return,      Button_Mute},
-    [Button_Mute]       = {"Mute",     NULL,                         35, 92, 24, 21, Button_Channel_Down,Button_About,       Button_Return,      Button_Mute},
+    [Button_Return]     = {"Ret",      NULL,                         5, 95, 24, 12, Button_Down,        Button_About,       Button_Return,      Button_Mute},
+    [Button_Mute]       = {"Mute",     NULL,                         35, 95, 24, 12, Button_Down,        Button_About,       Button_Return,      Button_Mute},
 
     // About Button
-    [Button_About]      = {"About",    NULL,                         5, 118, 54, 8, Button_Return,      Button_About,       Button_About,       Button_About},
+    [Button_About]      = {"About",    NULL,                         5, 116, 54, 12, Button_Return,      Button_About,       Button_About,       Button_About},
 };
 
 // --- App Structures ---
@@ -340,7 +340,8 @@ static App* app_alloc() {
         "Original Author: Tyler Berndt\n"
         "Website: https://purplefox.io\n"
         "GitHub: github.com/purplefox-io/flipper-samsung-remote\n\n"
-        "Press the OK button to go back to the remote screen. ");
+        "Press BACK to return to remote.\n"
+        "Use UP/DOWN to scroll.");
     // Set a custom input callback to handle OK and disable Back
     view_set_input_callback(widget_get_view(app->about_widget), about_widget_input_callback);
     view_set_context(widget_get_view(app->about_widget), app);
@@ -389,21 +390,21 @@ static void app_free(App* app) {
  */
 static bool about_widget_input_callback(InputEvent* event, void* context) {
     App* app = context;
-    bool handled = false;
 
     if(event->type == InputTypeShort) {
-        if(event->key == InputKeyOk) {
-            // Switch back to the remote view
+        if(event->key == InputKeyBack) {
+            // Exit to remote view on Back button
             app->current_view = AppViewRemote;
             view_dispatcher_switch_to_view(app->view_dispatcher, AppViewRemote);
-            handled = true;
-        } else if(event->key == InputKeyBack) {
-            // Consume the back event and do nothing to prevent crashing
-            handled = true;
+            return true;
+        } else if(event->key == InputKeyOk) {
+            // OK does nothing in about screen
+            return true;
         }
+        // Let Up/Down pass through for scrolling
     }
-    // Let the default widget handler take care of Up/Down for scrolling
-    return handled;
+    // Return false for Up/Down to allow widget to handle scrolling
+    return false;
 }
 
 /**
