@@ -57,26 +57,26 @@ typedef struct {
 // A vertical, single-column layout designed to be viewed with the Flipper
 // held sideways (rotated +90 degrees). Navigation links are corrected for new logic.
 static const RemoteButtonDef button_defs[Button_Max] = {
-    // ID                 Label       Icon                         X   Y   W   H   Up (phys Left)      Down (phys Right)   Left (phys Down)    Right (phys Up)
-    [Button_Power]      = {"PWR",      NULL,                         15,  2, 34, 11, Button_Power,       Button_Volume_Up,   Button_Power,       Button_Power},
+    // ID                 Label   Icon             X   Y   W   H   Up            Down          Left          Right
+    [Button_Power]      = {"PWR",  NULL,           16,  2, 32,  8, Button_Power,       Button_Volume_Up,   Button_Power,       Button_Power},
 
-    // Volume and Channel Rockers (in two columns) - компактнее
-    [Button_Volume_Up]  = {NULL,       &I_volup24x21,                5, 14, 24, 20, Button_Power,       Button_Volume_Down, Button_Volume_Up,   Button_Channel_Up},
-    [Button_Channel_Up] = {NULL,       &I_chup24x21,                 35, 14, 24, 20, Button_Power,       Button_Channel_Down,Button_Volume_Up,   Button_Channel_Up},
+    // Volume and Channel Rockers (вверху, как в оригинале)
+    [Button_Volume_Up]  = {NULL,   &I_volup24x21,   5, 14, 24, 21, Button_Power,       Button_Volume_Down, Button_Volume_Up,   Button_Channel_Up},
+    [Button_Channel_Up] = {NULL,   &I_chup24x21,   35, 14, 24, 21, Button_Power,       Button_Channel_Down,Button_Volume_Up,   Button_Channel_Up},
 
-    [Button_Volume_Down]= {NULL,       &I_voldown24x21,              5, 36, 24, 20, Button_Volume_Up,   Button_Up,          Button_Volume_Down, Button_Channel_Down},
-    [Button_Channel_Down]={NULL,       &I_chdown24x21,               35, 36, 24, 20, Button_Channel_Up,  Button_Up,          Button_Volume_Down, Button_Channel_Down},
+    [Button_Volume_Down]= {NULL,   &I_voldown24x21, 5, 36, 24, 21, Button_Volume_Up,   Button_Up,          Button_Volume_Down, Button_Channel_Down},
+    [Button_Channel_Down]={NULL,   &I_chdown24x21, 35, 36, 24, 21, Button_Channel_Up,  Button_Up,          Button_Volume_Down, Button_Channel_Down},
 
-    // D-Pad - используем иконки dpad*.png (размер 20x18)
-    [Button_Up]         = {NULL,       &I_dpadup20x18,               21, 55, 20, 18, Button_Volume_Down, Button_Enter,       Button_Up,          Button_Up},
-    [Button_Enter]      = {"OK",       NULL,                         24, 77, 16, 16, Button_Up,          Button_Down,        Button_Left,        Button_Right},
-    [Button_Left]       = {NULL,       &I_dpadleft20x18,             4,  76, 20, 18, Button_Enter,       Button_Enter,       Button_Left,        Button_Enter},
-    [Button_Right]      = {NULL,       &I_dpadright20x18,            40, 76, 20, 18, Button_Enter,       Button_Enter,       Button_Enter,       Button_Right},
-    [Button_Down]       = {NULL,       &I_dpaddown20x18,             21, 98, 20, 18, Button_Enter,       Button_Back,      Button_Down,        Button_Down},
+    // D-Pad (оригинальные иконки стрелок) - смещено на 5 пикселей вниз
+    [Button_Up]         = {NULL,   &I_up7x4,       28, 61,  7,  4, Button_Channel_Down,Button_Enter,       Button_Up,          Button_Up},
+    [Button_Enter]      = {NULL,   &I_center7x4,   28, 70,  7,  4, Button_Up,          Button_Volume_Down, Button_Left,        Button_Right},
+    [Button_Left]       = {NULL,   &I_left7x4,     13, 70,  7,  4, Button_Enter,       Button_Enter,       Button_Left,        Button_Enter},
+    [Button_Right]      = {NULL,   &I_right7x4,    47, 70,  7,  4, Button_Enter,       Button_Enter,       Button_Enter,       Button_Right},
+    [Button_Down]       = {NULL,   &I_down7x4,     28, 81,  7,  4, Button_Enter,       Button_Back,        Button_Down,        Button_Down},
 
-    // Bottom Row
-    [Button_Back]     = {"Back",      NULL,                         4, 103, 26, 13, Button_Down,        Button_Mute,        Button_Back,      Button_Mute},
-    [Button_Mute]       = {"Mute",     NULL,                         34, 103, 26, 13, Button_Down,        Button_Back,      Button_Back,      Button_Mute},
+    // Bottom Row - текстовые кнопки - смещено на 3 пикселя вниз
+    [Button_Back]       = {"Back", NULL,            4,  95, 26, 12, Button_Down,        Button_Mute,        Button_Back,        Button_Mute},
+    [Button_Mute]       = {"Mute", NULL,           34,  95, 26, 12, Button_Down,        Button_Back,        Button_Back,        Button_Mute},
 };
 
 // --- App Structures ---
@@ -175,16 +175,16 @@ static bool app_input_callback(InputEvent* event, void* context) {
                 if(model->current_button == Button_Enter) {
                     // Special D-Pad navigation when "OK" is selected
                     switch(event->key) {
-                    case InputKeyUp: // Physical Up -> UI Up
+                    case InputKeyUp:
                         model->current_button = Button_Up;
                         break;
-                    case InputKeyDown: // Physical Down -> UI Down
+                    case InputKeyDown:
                         model->current_button = Button_Down;
                         break;
-                    case InputKeyLeft: // Physical Left -> UI Left
+                    case InputKeyLeft:
                         model->current_button = Button_Left;
                         break;
-                    case InputKeyRight: // Physical Right -> UI Right
+                    case InputKeyRight:
                         model->current_button = Button_Right;
                         break;
                     default:
@@ -226,45 +226,46 @@ static void send_ir_code(TvButton button, NotificationApp* notifications) {
     notification_message(notifications, &sequence_single_vibro);
     notification_message(notifications, &sequence_blink_magenta_10);
 
-    uint32_t address = 0xBF00; // Hisense extended NEC address: 00 BF 00 00
-    uint8_t command;
+    // Hisense NEC extended: full address and command as in IR file
+    uint32_t address = 0x0000BF00; // 00 BF 00 00
+    uint32_t command;
 
     switch(button) {
     case Button_Power:
-        command = 0x0D; // Power: 0D F2 00 00
+        command = 0x0000F20D; // 0D F2 00 00
         break;
     case Button_Volume_Up:
-        command = 0x44; // V+: 44 BB 00 00
+        command = 0x0000BB44; // 44 BB 00 00
         break;
     case Button_Volume_Down:
-        command = 0x43; // V-: 43 BC 00 00
+        command = 0x0000BC43; // 43 BC 00 00
         break;
     case Button_Channel_Up:
-        command = 0x4A; // Ch_up: 4A B5 00 00
+        command = 0x0000B54A; // 4A B5 00 00
         break;
     case Button_Channel_Down:
-        command = 0x4B; // Ch_dwn: 4B B4 00 00
+        command = 0x0000B44B; // 4B B4 00 00
         break;
     case Button_Left:
-        command = 0x19; // Left: 19 E6 00 00
+        command = 0x0000E619; // 19 E6 00 00
         break;
     case Button_Right:
-        command = 0x18; // Right: 18 E7 00 00
+        command = 0x0000E718; // 18 E7 00 00
         break;
     case Button_Up:
-        command = 0x16; // Up: 16 E9 00 00
+        command = 0x0000E916; // 16 E9 00 00
         break;
     case Button_Down:
-        command = 0x17; // Down: 17 E8 00 00
+        command = 0x0000E817; // 17 E8 00 00
         break;
     case Button_Back:
-        command = 0x48; // Back: 48 B7 00 00
+        command = 0x0000B748; // 48 B7 00 00
         break;
     case Button_Enter:
-        command = 0x15; // Ok: 15 EA 00 00
+        command = 0x0000EA15; // 15 EA 00 00
         break;
     case Button_Mute:
-        command = 0x0E; // Mute: 0E F1 00 00
+        command = 0x0000F10E; // 0E F1 00 00
         break;
     default:
         notification_message(notifications, &sequence_reset_rgb);
