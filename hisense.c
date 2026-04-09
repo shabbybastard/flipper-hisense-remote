@@ -27,6 +27,7 @@
 // --- Button Definitions ---
 typedef enum {
     Button_Power,
+    Button_Capture,
     Button_Volume_Up,
     Button_Channel_Up,
     Button_Volume_Down,
@@ -58,25 +59,28 @@ typedef struct {
 // held sideways (rotated +90 degrees). Navigation links are corrected for new logic.
 static const RemoteButtonDef button_defs[Button_Max] = {
     // ID                 Label   Icon             X   Y   W   H   Up            Down          Left          Right
-    [Button_Power]      = {"PWR",  NULL,           16,  2, 32,  8, Button_Power,       Button_Volume_Up,   Button_Power,       Button_Power},
+    [Button_Power]      = {"pwr",  NULL,           16,  2, 32,  8, Button_Power,       Button_Capture,     Button_Power,       Button_Power},
 
-    // Volume and Channel Rockers (вверху, как в оригинале)
-    [Button_Volume_Up]  = {NULL,   &I_volup24x21,   5, 14, 24, 21, Button_Power,       Button_Volume_Down, Button_Volume_Up,   Button_Channel_Up},
-    [Button_Channel_Up] = {NULL,   &I_chup24x21,   35, 14, 24, 21, Button_Power,       Button_Channel_Down,Button_Volume_Up,   Button_Channel_Up},
+    // Capture Button - right under PWR
+    [Button_Capture]    = {"cptr", NULL,          16, 14, 32, 10, Button_Power,       Button_Volume_Up,   Button_Capture,     Button_Capture},
 
-    [Button_Volume_Down]= {NULL,   &I_voldown24x21, 5, 36, 24, 21, Button_Volume_Up,   Button_Up,          Button_Volume_Down, Button_Channel_Down},
-    [Button_Channel_Down]={NULL,   &I_chdown24x21, 35, 36, 24, 21, Button_Channel_Up,  Button_Up,          Button_Volume_Down, Button_Channel_Down},
+    // Volume and Channel Rockers - shifted down
+    [Button_Volume_Up]  = {NULL,   &I_volup24x21,   5, 26, 24, 21, Button_Capture,     Button_Volume_Down, Button_Volume_Up,   Button_Channel_Up},
+    [Button_Channel_Up] = {NULL,   &I_chup24x21,   35, 26, 24, 21, Button_Capture,     Button_Channel_Down,Button_Volume_Up,   Button_Channel_Up},
 
-    // D-Pad (оригинальные иконки стрелок) - смещено на 5 пикселей вниз
-    [Button_Up]         = {NULL,   &I_up7x4,       28, 61,  7,  4, Button_Channel_Down,Button_Enter,       Button_Up,          Button_Up},
-    [Button_Enter]      = {NULL,   &I_center7x4,   28, 70,  7,  4, Button_Up,          Button_Volume_Down, Button_Left,        Button_Right},
-    [Button_Left]       = {NULL,   &I_left7x4,     13, 70,  7,  4, Button_Enter,       Button_Enter,       Button_Left,        Button_Enter},
-    [Button_Right]      = {NULL,   &I_right7x4,    47, 70,  7,  4, Button_Enter,       Button_Enter,       Button_Enter,       Button_Right},
-    [Button_Down]       = {NULL,   &I_down7x4,     28, 81,  7,  4, Button_Enter,       Button_Back,        Button_Down,        Button_Down},
+    [Button_Volume_Down]= {NULL,   &I_voldown24x21, 5, 48, 24, 21, Button_Volume_Up,   Button_Up,          Button_Volume_Down, Button_Channel_Down},
+    [Button_Channel_Down]={NULL,   &I_chdown24x21, 35, 48, 24, 21, Button_Channel_Up,  Button_Up,          Button_Volume_Down, Button_Channel_Down},
 
-    // Bottom Row - текстовые кнопки - смещено на 3 пикселя вниз
-    [Button_Back]       = {"Back", NULL,            4,  95, 26, 12, Button_Down,        Button_Mute,        Button_Back,        Button_Mute},
-    [Button_Mute]       = {"Mute", NULL,           34,  95, 26, 12, Button_Down,        Button_Back,        Button_Back,        Button_Mute},
+    // D-Pad - shifted down
+    [Button_Up]         = {NULL,   &I_up7x4,       28, 73,  7,  4, Button_Channel_Down,Button_Enter,       Button_Up,          Button_Up},
+    [Button_Enter]      = {NULL,   &I_center7x4,   28, 82,  7,  4, Button_Up,          Button_Volume_Down, Button_Left,        Button_Right},
+    [Button_Left]       = {NULL,   &I_left7x4,     13, 82,  7,  4, Button_Enter,       Button_Enter,       Button_Left,        Button_Enter},
+    [Button_Right]      = {NULL,   &I_right7x4,    47, 82,  7,  4, Button_Enter,       Button_Enter,       Button_Enter,       Button_Right},
+    [Button_Down]       = {NULL,   &I_down7x4,     28, 93,  7,  4, Button_Enter,       Button_Back,        Button_Down,        Button_Down},
+
+    // Bottom Row - shifted down
+    [Button_Back]       = {"back", NULL,            4, 102, 26, 12, Button_Down,        Button_Back,        Button_Back,        Button_Mute},
+    [Button_Mute]       = {"mute", NULL,           34, 102, 26, 12, Button_Down,        Button_Mute,        Button_Back,        Button_Mute},
 };
 
 // --- App Structures ---
@@ -84,6 +88,7 @@ static const RemoteButtonDef button_defs[Button_Max] = {
 // Model for the main view, holds the currently selected button
 typedef struct {
     TvButton current_button;
+    bool dpad_capture_mode; // D-Pad capture mode flag
 } RemoteViewModel;
 
 // Main application structure
@@ -142,6 +147,15 @@ static void app_draw_callback(Canvas* canvas, void* model) {
             AlignCenter,
             selected_btn->label);
     }
+
+    // Draw D-Pad capture mode indicator
+    if(view_model->dpad_capture_mode) {
+        canvas_set_color(canvas, ColorBlack);
+        canvas_draw_box(canvas, 0, 120, 64, 8);
+        canvas_set_color(canvas, ColorWhite);
+        canvas_set_font(canvas, FontSecondary);
+        canvas_draw_str_aligned(canvas, 32, 124, AlignCenter, AlignCenter, "capture mode");
+    }
 }
 
 /**
@@ -154,17 +168,83 @@ static bool app_input_callback(InputEvent* event, void* context) {
     App* app = context;
     bool handled = false;
 
+    // Check if we're in D-Pad capture mode
+    RemoteViewModel* view_model = view_get_model(app->remote_view);
+    bool in_capture_mode = view_model->dpad_capture_mode;
+    view_commit_model(app->remote_view, false);
+
+    if(in_capture_mode) {
+        // In capture mode: D-pad directly sends IR commands
+        if(event->type == InputTypeShort || event->type == InputTypeRepeat) {
+            switch(event->key) {
+            case InputKeyUp:
+                send_ir_code(Button_Up, app->notifications);
+                handled = true;
+                break;
+            case InputKeyDown:
+                send_ir_code(Button_Down, app->notifications);
+                handled = true;
+                break;
+            case InputKeyLeft:
+                send_ir_code(Button_Left, app->notifications);
+                handled = true;
+                break;
+            case InputKeyRight:
+                send_ir_code(Button_Right, app->notifications);
+                handled = true;
+                break;
+            case InputKeyOk:
+                send_ir_code(Button_Enter, app->notifications);
+                handled = true;
+                break;
+            case InputKeyBack:
+                // Short back in capture mode sends Back IR signal
+                send_ir_code(Button_Back, app->notifications);
+                handled = true;
+                break;
+            default:
+                break;
+            }
+        } else if(event->type == InputTypeLong && event->key == InputKeyBack) {
+            // Long back in capture mode exits capture mode
+            with_view_model(
+                app->remote_view,
+                RemoteViewModel* model,
+                { model->dpad_capture_mode = false; },
+                true);
+            handled = true;
+        }
+        return handled;
+    }
+
+    // Normal mode handling
+
+    // Handle long press on Back button to exit app (only in normal mode)
+    if(event->key == InputKeyBack && event->type == InputTypeLong) {
+        view_dispatcher_stop(app->view_dispatcher);
+        return true;
+    }
+
     if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
         return false;
     }
 
     if(event->key == InputKeyBack) {
-        // Exit the app on Back button
-        view_dispatcher_stop(app->view_dispatcher);
+        // Short back - just ignore in normal mode (long press handled above)
         handled = true;
     } else if(event->key == InputKeyOk) {
-        RemoteViewModel* model = view_get_model(app->remote_view);
-        send_ir_code(model->current_button, app->notifications);
+        with_view_model(
+            app->remote_view,
+            RemoteViewModel* model,
+            {
+                if(model->current_button == Button_Capture) {
+                    // Activate D-Pad capture mode
+                    model->dpad_capture_mode = true;
+                } else {
+                    send_ir_code(model->current_button, app->notifications);
+                }
+            },
+            true);
         handled = true;
     } else {
         with_view_model(
@@ -302,7 +382,10 @@ static App* app_alloc() {
     with_view_model(
         app->remote_view,
         RemoteViewModel* model,
-        { model->current_button = Button_Power; },
+        {
+            model->current_button = Button_Power;
+            model->dpad_capture_mode = false;
+        },
         true);
     view_set_draw_callback(app->remote_view, app_draw_callback);
     view_set_input_callback(app->remote_view, app_input_callback);
