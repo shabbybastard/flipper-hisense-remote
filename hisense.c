@@ -225,6 +225,11 @@ static bool app_input_callback(InputEvent* event, void* context) {
         return true;
     }
 
+    // Handle release of Back button to ensure immediate exit
+    if(event->key == InputKeyBack && event->type == InputTypeRelease) {
+        return true;
+    }
+
     if(event->type != InputTypeShort && event->type != InputTypeRepeat) {
         return false;
     }
@@ -398,7 +403,6 @@ static App* app_alloc() {
 
     // Notifications
     app->notifications = furi_record_open(RECORD_NOTIFICATION);
-    notification_message(app->notifications, &sequence_display_backlight_enforce_on);
 
     return app;
 }
